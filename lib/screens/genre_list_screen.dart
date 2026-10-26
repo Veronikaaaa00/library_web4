@@ -161,13 +161,11 @@ class _GenreListScreenState extends State<GenreListScreen> {
         IconButton(
           tooltip: 'Удалить навсегда',
           onPressed: () async {
-            try {
-              await context.read<GenreListNotifier>().hardDelete(g.id);
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context)
-                    .showSnackBar(SnackBar(content: Text('$e')));
-              }
+            final err =
+                await context.read<GenreListNotifier>().hardDelete(g.id);
+            if (err != null && mounted) {
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(err)));
             }
           },
           icon: const Icon(Icons.delete_forever),

@@ -6,6 +6,7 @@ import '../models/library_card.dart';
 import '../models/reader.dart';
 import '../repositories/reader_repository.dart';
 import '../state/reader_list_notifier.dart';
+import '../utils/form_api_errors.dart';
 import '../validation/validators.dart';
 import '../widgets/entity_form_scaffold.dart';
 
@@ -111,10 +112,25 @@ class _ReaderFormScreenState extends State<ReaderFormScreen> {
       deletedAt: _existing?.deletedAt,
     );
 
-    if (widget.isEditing) {
-      await repo.update(draft);
-    } else {
-      await repo.create(draft);
+    try {
+      if (widget.isEditing) {
+        await repo.update(draft);
+      } else {
+        await repo.create(draft);
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      return handleFormApiError(
+        context,
+        error: e,
+        onValidation: (errors) {
+          setState(() {
+            if (errors['email'] != null) {
+              _emailUniqueError = errors['email'];
+            }
+          });
+        },
+      );
     }
     if (!mounted) return false;
     await context.read<ReaderListNotifier>().load();

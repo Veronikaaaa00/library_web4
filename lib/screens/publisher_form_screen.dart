@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/catalog_cache.dart';
 import '../models/publisher.dart';
 import '../repositories/publisher_repository.dart';
 import '../state/publisher_list_notifier.dart';
+import '../utils/form_api_errors.dart';
 import '../validation/validators.dart';
 import '../widgets/entity_form_scaffold.dart';
 
@@ -23,6 +25,7 @@ class _PublisherFormScreenState extends State<PublisherFormScreen> {
   final _country = TextEditingController();
   Publisher? _existing;
   var _loading = true;
+  final Map<String, String> _serverErrors = {};
 
   @override
   void initState() {
@@ -43,19 +46,35 @@ class _PublisherFormScreenState extends State<PublisherFormScreen> {
   }
 
   Future<bool> _save() async {
+    setState(() => _serverErrors.clear());
     final repo = context.read<PublisherRepository>();
     final draft = Publisher(
       id: widget.id ?? 0,
       name: _name.text.trim(),
       country: _country.text.trim(),
+      foundedYear: _existing?.foundedYear,
       deletedAt: _existing?.deletedAt,
     );
-    if (widget.isEditing) {
-      await repo.update(draft);
-    } else {
-      await repo.create(draft);
+    try {
+      if (widget.isEditing) {
+        await repo.update(draft);
+      } else {
+        await repo.create(draft);
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      return handleFormApiError(
+        context,
+        error: e,
+        onValidation: (errors) => setState(() {
+          _serverErrors
+            ..clear()
+            ..addAll(errors);
+        }),
+      );
     }
     if (!mounted) return false;
+    context.read<CatalogCache>().invalidate();
     await context.read<PublisherListNotifier>().load();
     if (!mounted) return false;
     context.go('/publishers');
@@ -86,24 +105,28 @@ class _PublisherFormScreenState extends State<PublisherFormScreen> {
       fields: [
         TextFormField(
           controller: _name,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Название',
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            errorText: _serverErrors['name'],
           ),
           validator: Validators.compose([
+            (v) => _serverErrors['name'],
             (v) => Validators.required(v, label: 'Название'),
             (v) => Validators.maxLength(v, 120, label: 'Название'),
           ]),
         ),
         TextFormField(
           controller: _country,
-          decoration: const InputDecoration(
-            labelText: 'Страна',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: 'Город / страна',
+            border: const OutlineInputBorder(),
+            errorText: _serverErrors['city'],
           ),
           validator: Validators.compose([
-            (v) => Validators.required(v, label: 'Страна'),
-            (v) => Validators.maxLength(v, 80, label: 'Страна'),
+            (v) => _serverErrors['city'],
+            (v) => Validators.required(v, label: 'Город / страна'),
+            (v) => Validators.maxLength(v, 80, label: 'Город / страна'),
           ]),
         ),
       ],

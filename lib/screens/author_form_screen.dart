@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/catalog_cache.dart';
 import '../models/author.dart';
 import '../repositories/author_repository.dart';
 import '../state/author_list_notifier.dart';
+import '../utils/form_api_errors.dart';
 import '../validation/validators.dart';
 import '../widgets/entity_form_scaffold.dart';
 
@@ -26,6 +28,7 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
   final _bio = TextEditingController();
   Author? _existing;
   var _loading = true;
+  final Map<String, String> _serverErrors = {};
 
   @override
   void initState() {
@@ -50,6 +53,7 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
   }
 
   Future<bool> _save() async {
+    setState(() => _serverErrors.clear());
     final repo = context.read<AuthorRepository>();
     final draft = Author(
       id: widget.id ?? 0,
@@ -60,12 +64,26 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
       bio: _bio.text.trim().isEmpty ? null : _bio.text.trim(),
       deletedAt: _existing?.deletedAt,
     );
-    if (widget.isEditing) {
-      await repo.update(draft);
-    } else {
-      await repo.create(draft);
+    try {
+      if (widget.isEditing) {
+        await repo.update(draft);
+      } else {
+        await repo.create(draft);
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      return handleFormApiError(
+        context,
+        error: e,
+        onValidation: (errors) => setState(() {
+          _serverErrors
+            ..clear()
+            ..addAll(errors);
+        }),
+      );
     }
     if (!mounted) return false;
+    context.read<CatalogCache>().invalidate();
     await context.read<AuthorListNotifier>().load();
     if (!mounted) return false;
     context.go('/authors');
@@ -112,11 +130,13 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
       fields: [
         TextFormField(
           controller: _lastName,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Фамилия',
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            errorText: _serverErrors['fullName'],
           ),
           validator: Validators.compose([
+            (v) => _serverErrors['fullName'],
             (v) => Validators.required(v, label: 'Фамилия'),
             (v) => Validators.maxLength(v, 80, label: 'Фамилия'),
           ]),
@@ -145,12 +165,15 @@ class _AuthorFormScreenState extends State<AuthorFormScreen> {
         ),
         TextFormField(
           controller: _birthYear,
-          decoration: const InputDecoration(
+          decoration: InputDecoration(
             labelText: 'Год рождения',
-            border: OutlineInputBorder(),
+            border: const OutlineInputBorder(),
+            errorText: _serverErrors['birthYear'],
           ),
           keyboardType: TextInputType.number,
-          validator: (v) => Validators.year(v, min: 1, max: DateTime.now().year),
+          validator: (v) =>
+              _serverErrors['birthYear'] ??
+              Validators.year(v, min: 1, max: DateTime.now().year),
         ),
         TextFormField(
           controller: _bio,

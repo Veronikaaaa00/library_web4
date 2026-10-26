@@ -22,7 +22,10 @@ class Reader {
 
   bool get isDeleted => deletedAt != null;
 
-  String get fullName => '$lastName $firstName';
+  String get fullName {
+    final joined = '$lastName $firstName'.trim();
+    return joined.isEmpty ? lastName : joined;
+  }
 
   Reader copyWith({
     String? firstName,
@@ -44,10 +47,17 @@ class Reader {
     );
   }
 
+  Map<String, dynamic> toApiBody() => {
+        'fullName': fullName,
+        'email': email,
+        'phone': phone,
+      };
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'firstName': firstName,
         'lastName': lastName,
+        'fullName': fullName,
         'email': email,
         'phone': phone,
         'card': card.toJson(),
@@ -55,9 +65,15 @@ class Reader {
       };
 
   factory Reader.fromJson(Map<String, dynamic> json) {
+    var firstName = asString(json['firstName']);
+    var lastName = asString(json['lastName']);
+    final apiName = asString(json['fullName']);
+    if (apiName.isNotEmpty && firstName.isEmpty && lastName.isEmpty) {
+      lastName = apiName;
+    }
     final cardRaw = json['card'];
-    final card = cardRaw is Map<String, dynamic>
-        ? LibraryCard.fromJson(cardRaw)
+    final card = cardRaw is Map
+        ? LibraryCard.fromJson(Map<String, dynamic>.from(cardRaw))
         : LibraryCard(
             number: '',
             issuedAt: DateTime.now(),
@@ -65,8 +81,8 @@ class Reader {
           );
     return Reader(
       id: asInt(json['id']),
-      firstName: asString(json['firstName']),
-      lastName: asString(json['lastName']),
+      firstName: firstName,
+      lastName: lastName,
       email: asString(json['email']),
       phone: asString(json['phone']),
       card: card,

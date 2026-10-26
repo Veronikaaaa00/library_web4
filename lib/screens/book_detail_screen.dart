@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import '../core/api_exceptions.dart';
 import '../models/book.dart';
 import '../repositories/author_repository.dart';
 import '../repositories/book_repository.dart';
 import '../repositories/genre_repository.dart';
+import '../repositories/loan_repository.dart';
 import '../repositories/publisher_repository.dart';
 import '../widgets/app_scaffold.dart';
 
@@ -132,6 +134,11 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                     icon: const Icon(Icons.edit),
                     label: const Text('Изменить'),
                   ),
+                  FilledButton.icon(
+                    onPressed: () => _tryLoan(book),
+                    icon: const Icon(Icons.menu_book),
+                    label: const Text('Выдать (демо 409)'),
+                  ),
                   OutlinedButton(
                     onPressed: () => context.go('/books'),
                     child: const Text('К списку'),
@@ -143,6 +150,25 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         },
       ),
     );
+  }
+
+  Future<void> _tryLoan(Book book) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await context.read<LoanRepository>().createLoan(
+            readerId: 1,
+            bookId: book.id,
+          );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Выдача оформлена')),
+      );
+      setState(() => _future = _load());
+    } on ConflictException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    } on ApiException catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   Widget _row(String label, String value) {

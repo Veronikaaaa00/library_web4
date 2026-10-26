@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/page_result.dart';
 import '../models/publisher.dart';
 import '../models/publisher_query.dart';
+import '../core/api_exceptions.dart';
 import '../repositories/publisher_repository.dart';
 import '../repositories/related_records_exception.dart';
 import 'load_status.dart';
@@ -63,13 +64,24 @@ class PublisherListNotifier extends ChangeNotifier {
       return null;
     } on RelatedRecordsException catch (e) {
       return e.toString();
+    } on ConflictException catch (e) {
+      return e.message;
+    } on ApiException catch (e) {
+      return e.message;
     }
   }
 
-  Future<void> hardDelete(int id) async {
-    await _repository.hardDelete(id);
-    _selected.remove(id);
-    await load();
+  Future<String?> hardDelete(int id) async {
+    try {
+      await _repository.hardDelete(id);
+      _selected.remove(id);
+      await load();
+      return null;
+    } on ConflictException catch (e) {
+      return e.message;
+    } on ApiException catch (e) {
+      return e.message;
+    }
   }
 
   Future<void> restore(int id) async {

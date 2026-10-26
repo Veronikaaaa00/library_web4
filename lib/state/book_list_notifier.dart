@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../core/api_exceptions.dart';
 import '../models/book.dart';
 import '../models/book_query.dart';
 import '../models/page_result.dart';
@@ -10,6 +11,7 @@ class BookListNotifier extends ChangeNotifier {
   BookListNotifier(this._repository);
 
   final BookRepository _repository;
+  var _loadGeneration = 0;
 
   BookQuery _query = const BookQuery();
   PageResult<Book> _result = PageResult.empty();
@@ -25,13 +27,19 @@ class BookListNotifier extends ChangeNotifier {
   bool get hasSelection => _selected.isNotEmpty;
 
   Future<void> load() async {
+    final generation = ++_loadGeneration;
     _status = LoadStatus.loading;
     _error = null;
     notifyListeners();
     try {
-      _result = await _repository.find(_query);
+      final page = await _repository.find(_query);
+      if (generation != _loadGeneration) return;
+      _result = page;
       _status = LoadStatus.success;
+    } on CancelledException {
+      return;
     } catch (e) {
+      if (generation != _loadGeneration) return;
       _error = 'Не удалось загрузить список: $e';
       _status = LoadStatus.error;
     }

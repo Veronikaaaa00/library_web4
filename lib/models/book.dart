@@ -12,6 +12,7 @@ class Book {
   final int copiesTotal;
   final int copiesAvailable;
   final DateTime? deletedAt;
+  final String? publisherName;
 
   const Book({
     required this.id,
@@ -25,6 +26,7 @@ class Book {
     required this.copiesTotal,
     required this.copiesAvailable,
     this.deletedAt,
+    this.publisherName,
   });
 
   bool get isDeleted => deletedAt != null;
@@ -41,6 +43,7 @@ class Book {
     int? copiesAvailable,
     DateTime? deletedAt,
     bool clearDeletedAt = false,
+    String? publisherName,
   }) {
     return Book(
       id: id,
@@ -54,11 +57,12 @@ class Book {
       copiesTotal: copiesTotal ?? this.copiesTotal,
       copiesAvailable: copiesAvailable ?? this.copiesAvailable,
       deletedAt: clearDeletedAt ? null : (deletedAt ?? this.deletedAt),
+      publisherName: publisherName ?? this.publisherName,
     );
   }
 
-  Map<String, dynamic> toJson() => {
-        'id': id,
+  /// Тело для POST/PUT по контракту API.
+  Map<String, dynamic> toApiBody() => {
         'title': title,
         'isbn': isbn,
         'year': year,
@@ -67,21 +71,59 @@ class Book {
         'authorIds': authorIds,
         'genreIds': genreIds,
         'copiesTotal': copiesTotal,
+      };
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        ...toApiBody(),
         'copiesAvailable': copiesAvailable,
         'deletedAt': deletedAt?.toIso8601String(),
       };
 
-  factory Book.fromJson(Map<String, dynamic> json) => Book(
-        id: asInt(json['id']),
-        title: asString(json['title']),
-        isbn: asString(json['isbn']),
-        year: asInt(json['year']),
-        pages: asInt(json['pages']),
-        publisherId: asInt(json['publisherId']),
-        authorIds: asIntList(json['authorIds']),
-        genreIds: asIntList(json['genreIds']),
-        copiesTotal: asInt(json['copiesTotal']),
-        copiesAvailable: asInt(json['copiesAvailable']),
-        deletedAt: asDateTime(json['deletedAt']),
-      );
+  factory Book.fromJson(Map<String, dynamic> json) {
+    // Ответ API: publisher / authors / genres — объекты.
+    // Локальное хранилище / запись: publisherId / authorIds / genreIds.
+    var publisherId = asInt(json['publisherId']);
+    String? publisherName;
+    final publisher = json['publisher'];
+    if (publisher is Map) {
+      publisherId = asInt(publisher['id'], publisherId);
+      publisherName = asString(publisher['name']);
+    }
+
+    var authorIds = asIntList(json['authorIds']);
+    final authors = json['authors'];
+    if (authors is List && authors.isNotEmpty) {
+      authorIds = authors
+          .whereType<Map>()
+          .map((a) => asInt(a['id']))
+          .where((id) => id > 0)
+          .toList();
+    }
+
+    var genreIds = asIntList(json['genreIds']);
+    final genres = json['genres'];
+    if (genres is List && genres.isNotEmpty) {
+      genreIds = genres
+          .whereType<Map>()
+          .map((g) => asInt(g['id']))
+          .where((id) => id > 0)
+          .toList();
+    }
+
+    return Book(
+      id: asInt(json['id']),
+      title: asString(json['title']),
+      isbn: asString(json['isbn']),
+      year: asInt(json['year']),
+      pages: asInt(json['pages']),
+      publisherId: publisherId,
+      authorIds: authorIds,
+      genreIds: genreIds,
+      copiesTotal: asInt(json['copiesTotal']),
+      copiesAvailable: asInt(json['copiesAvailable']),
+      deletedAt: asDateTime(json['deletedAt']),
+      publisherName: publisherName,
+    );
+  }
 }

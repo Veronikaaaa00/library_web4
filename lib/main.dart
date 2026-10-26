@@ -1,16 +1,22 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/api_client.dart';
+import 'core/auth_token_store.dart';
+import 'core/catalog_cache.dart';
+import 'core/config.dart';
+import 'repositories/api_author_repository.dart';
+import 'repositories/api_book_repository.dart';
+import 'repositories/api_genre_repository.dart';
+import 'repositories/api_publisher_repository.dart';
+import 'repositories/api_reader_repository.dart';
+import 'repositories/auth_repository.dart';
 import 'repositories/author_repository.dart';
 import 'repositories/book_repository.dart';
 import 'repositories/genre_repository.dart';
-import 'repositories/persistent_author_repository.dart';
-import 'repositories/persistent_book_repository.dart';
-import 'repositories/persistent_genre_repository.dart';
-import 'repositories/persistent_publisher_repository.dart';
-import 'repositories/persistent_reader_repository.dart';
+import 'repositories/loan_repository.dart';
 import 'repositories/publisher_repository.dart';
 import 'repositories/reader_repository.dart';
 import 'router.dart';
@@ -19,29 +25,50 @@ import 'state/book_list_notifier.dart';
 import 'state/genre_list_notifier.dart';
 import 'state/publisher_list_notifier.dart';
 import 'state/reader_list_notifier.dart';
-import 'storage/storage_meta.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy();
-  final prefs = await SharedPreferences.getInstance();
-  final meta = await StorageMeta.open(prefs);
 
-  final books = PersistentBookRepository(prefs);
-  final authors = PersistentAuthorRepository(prefs);
-  final genres = PersistentGenreRepository(prefs, books);
-  final publishers = PersistentPublisherRepository(prefs, books);
-  final readers = PersistentReaderRepository(prefs);
+  final tokens = AuthTokenStore();
+  final dio = buildDio(tokenStore: tokens);
+  final auth = AuthRepository(dio, tokens);
+
+  // Мутации требуют роль librarian/admin — логинимся при старте.
+  try {
+    await auth.loginAsAdmin();
+  } catch (e) {
+    debugPrint(
+      'Не удалось войти в API ($apiBaseUrl): $e. '
+      'Запустите mock-server и откройте приложение с --web-port=5555.',
+    );
+  }
+
+  final books = ApiBookRepository(dio);
+  final authors = ApiAuthorRepository(dio);
+  final genres = ApiGenreRepository(dio);
+  final publishers = ApiPublisherRepository(dio);
+  final readers = ApiReaderRepository(dio);
+  final loans = LoanRepository(dio);
+  final catalog = CatalogCache(
+    authors: authors,
+    genres: genres,
+    publishers: publishers,
+  );
 
   runApp(
     MultiProvider(
       providers: [
+        Provider<Dio>.value(value: dio),
+        Provider<AuthTokenStore>.value(value: tokens),
+        Provider<AuthRepository>.value(value: auth),
         Provider<BookRepository>.value(value: books),
         Provider<AuthorRepository>.value(value: authors),
         Provider<GenreRepository>.value(value: genres),
         Provider<PublisherRepository>.value(value: publishers),
         Provider<ReaderRepository>.value(value: readers),
-        Provider<StorageMeta>.value(value: meta),
+        Provider<LoanRepository>.value(value: loans),
+        Provider<CatalogCache>.value(value: catalog),
         ChangeNotifierProvider(
           create: (_) => BookListNotifier(books)..load(),
         ),
@@ -78,52 +105,6 @@ class LibraryApp extends StatelessWidget {
         useMaterial3: true,
       ),
       routerConfig: appRouter,
-      builder: (context, child) {
-        final message = context.read<StorageMeta>().resetMessage;
-        return _MigrationBanner(
-          message: message,
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-    );
-  }
-}
-
-class _MigrationBanner extends StatefulWidget {
-  const _MigrationBanner({required this.message, required this.child});
-
-  final String? message;
-  final Widget child;
-
-  @override
-  State<_MigrationBanner> createState() => _MigrationBannerState();
-}
-
-class _MigrationBannerState extends State<_MigrationBanner> {
-  var _visible = true;
-
-  @override
-  Widget build(BuildContext context) {
-    final show = widget.message != null && _visible;
-    return Column(
-      children: [
-        if (show)
-          Material(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            child: SafeArea(
-              bottom: false,
-              child: ListTile(
-                dense: true,
-                title: Text(widget.message!),
-                trailing: IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => setState(() => _visible = false),
-                ),
-              ),
-            ),
-          ),
-        Expanded(child: widget.child),
-      ],
     );
   }
 }

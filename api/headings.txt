@@ -1,0 +1,34 @@
+﻿lines 322
+# ╩юэЄЁръЄ єўхсэюую API л┴шсышюЄхър╗
+## 1. ╬с∙шх ёюуыр°хэш 
+### 1.1. ╬сюыюўър ёяшёър
+### 1.2. ╘юЁьрЄ ю°шсъш
+## 2. └єЄхэЄшЇшърЎш 
+### `POST /api/auth/register`
+### `POST /api/auth/login`
+### `POST /api/auth/refresh`
+### `GET /api/auth/me`
+### `POST /api/auth/logout`
+### 2.1. ╙ў╕Єэ√х чряшёш фы  яЁютхЁъш
+### 2.2. ╧Ёртр Ёюыхщ
+## 3. ╨хёєЁё√
+### `GET /api/books`
+### `GET /api/books/{id}`
+### `POST /api/books`
+### `PUT /api/books/{id}`
+### `DELETE /api/books/{id}`
+### `DELETE /api/books/{id}?hard=true`
+### `POST /api/books/bulk-delete`
+### `POST /api/books/{id}/restore`
+## 4. ╠юфхыш
+### `Book`
+### `Author`
+### `Genre`
+### `Publisher`
+### `Reader`
+### `Loan`
+## 5. ╤їхьр фрээ√ї
+## 6. ╥Ёхсютрэш  ъ ёхЁтхЁє фы  ЁрсюЄ√ ё Flutter Web
+### 6.1. CORS
+### 6.2. ╘шъёшЁютрээ√щ яюЁЄ ъышхэЄр
+### 6.3. ╚чюы Ўш  фрээ√ї

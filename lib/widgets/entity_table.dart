@@ -46,16 +46,16 @@ class EntityTable<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Scrollbar(
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minWidth: MediaQuery.sizeOf(context).width - 48,
-          ),
-          child: SingleChildScrollView(
-            child: DataTable(
+    // Без Scrollbar: на Flutter Web PrimaryScrollController часто
+    // не привязан к вложенному SingleChildScrollView.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minWidth: MediaQuery.sizeOf(context).width - 48,
+        ),
+        child: SingleChildScrollView(
+          child: DataTable(
               sortColumnIndex: _sortColumnIndex(),
               sortAscending: sortAscending,
               headingRowColor: WidgetStatePropertyAll(
@@ -103,7 +103,6 @@ class EntityTable<T> extends StatelessWidget {
                     ],
                   ),
               ],
-            ),
           ),
         ),
       ),
